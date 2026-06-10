@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 import httpx
@@ -174,7 +174,7 @@ async def process_lead_async(lead_id: int, raw_data: dict, normalized_data: dict
 
 
 @app.post("/api/leads", response_model=LeadApplicationResponse, status_code=201)
-async def create_lead(lead: LeadApplicationRequest, background_tasks: BackgroundTasks):
+async def create_lead(lead: LeadApplicationRequest):
     try:
         raw_data = lead.model_dump()
         normalized = normalize_data(raw_data)
@@ -191,10 +191,10 @@ async def create_lead(lead: LeadApplicationRequest, background_tasks: Background
             reasoning="Pending AI analysis",
             db_path=config.DATABASE_PATH
         )
-        logger.info(f"Lead saved with ID: {lead_id}, queuing background processing")
+        logger.info(f"Lead saved with ID: {lead_id}, spawning background task")
 
-        # Queue background processing
-        background_tasks.add_task(process_lead_async, lead_id, raw_data, normalized)
+        # Queue background processing (fire and forget)
+        asyncio.create_task(process_lead_async(lead_id, raw_data, normalized))
 
         # Return immediate response
         return LeadApplicationResponse(
