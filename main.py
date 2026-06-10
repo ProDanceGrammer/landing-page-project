@@ -87,7 +87,10 @@ async def health_check():
     }
 
     try:
-        get_all_leads(limit=1, db_path=config.DATABASE_PATH)
+        if config.DATABASE_TYPE == "postgres":
+            get_all_leads(limit=1)
+        else:
+            get_all_leads(limit=1, db_path=config.DATABASE_PATH)
         health_status["checks"]["database"] = "ok"
     except Exception as e:
         health_status["checks"]["database"] = f"error: {str(e)}"
@@ -165,20 +168,36 @@ async def process_lead_async(lead_id: int, raw_data: dict, normalized_data: dict
         logger.info(f"Classification for lead {lead_id}: {classification.temperature}, Priority: {classification.priority_score}")
 
         # Update lead in database with AI results
-        import sqlite3
-        conn = sqlite3.connect(config.DATABASE_PATH)
-        cursor = conn.cursor()
-        cursor.execute("""
-            UPDATE leads
-            SET ai_summary = ?,
-                temperature = ?,
-                priority_score = ?,
-                classification_reasoning = ?,
-                status = 'processed'
-            WHERE id = ?
-        """, (summary, classification.temperature, classification.priority_score, classification.reasoning, lead_id))
-        conn.commit()
-        conn.close()
+        if config.DATABASE_TYPE == "postgres":
+            import psycopg2
+            conn = psycopg2.connect(config.DATABASE_URL)
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE leads
+                SET ai_summary = %s,
+                    temperature = %s,
+                    priority_score = %s,
+                    classification_reasoning = %s,
+                    status = 'processed'
+                WHERE id = %s
+            """, (summary, classification.temperature, classification.priority_score, classification.reasoning, lead_id))
+            conn.commit()
+            conn.close()
+        else:
+            import sqlite3
+            conn = sqlite3.connect(config.DATABASE_PATH)
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE leads
+                SET ai_summary = ?,
+                    temperature = ?,
+                    priority_score = ?,
+                    classification_reasoning = ?,
+                    status = 'processed'
+                WHERE id = ?
+            """, (summary, classification.temperature, classification.priority_score, classification.reasoning, lead_id))
+            conn.commit()
+            conn.close()
 
         # Send Telegram notification
         await send_lead_notification(
@@ -204,15 +223,25 @@ async def create_lead(lead: LeadApplicationRequest):
         logger.info(f"Received new lead: {normalized.get('email')}")
 
         # Save lead immediately with pending status
-        lead_id = save_lead(
-            raw_data=raw_data,
-            normalized_data=normalized,
-            ai_summary="Processing...",
-            temperature="Warm",
-            priority_score=50,
-            reasoning="Pending AI analysis",
-            db_path=config.DATABASE_PATH
-        )
+        if config.DATABASE_TYPE == "postgres":
+            lead_id = save_lead(
+                raw_data=raw_data,
+                normalized_data=normalized,
+                ai_summary="Processing...",
+                temperature="Warm",
+                priority_score=50,
+                reasoning="Pending AI analysis"
+            )
+        else:
+            lead_id = save_lead(
+                raw_data=raw_data,
+                normalized_data=normalized,
+                ai_summary="Processing...",
+                temperature="Warm",
+                priority_score=50,
+                reasoning="Pending AI analysis",
+                db_path=config.DATABASE_PATH
+            )
         logger.info(f"Lead saved with ID: {lead_id}, spawning background task")
 
         # Queue background processing (fire and forget)
@@ -239,7 +268,10 @@ async def create_lead(lead: LeadApplicationRequest):
 
 @app.get("/api/leads/{lead_id}", response_model=LeadApplicationResponse)
 async def get_lead_by_id(lead_id: int):
-    lead_record = get_lead(lead_id, config.DATABASE_PATH)
+    if config.DATABASE_TYPE == "postgres":
+        lead_record = get_lead(lead_id)
+    else:
+        lead_record = get_lead(lead_id, config.DATABASE_PATH)
 
     if not lead_record:
         raise HTTPException(status_code=404, detail=f"Lead with ID {lead_id} not found")
@@ -269,7 +301,10 @@ async def list_leads(limit: int = 100, offset: int = 0):
     if limit > 500:
         raise HTTPException(status_code=400, detail="Limit cannot exceed 500")
 
-    lead_records = get_all_leads(limit=limit, offset=offset, db_path=config.DATABASE_PATH)
+    if config.DATABASE_TYPE == "postgres":
+        lead_records = get_all_leads(limit=limit, offset=offset)
+    else:
+        lead_records = get_all_leads(limit=limit, offset=offset, db_path=config.DATABASE_PATH)
 
     results = []
     for lead_record in lead_records:
