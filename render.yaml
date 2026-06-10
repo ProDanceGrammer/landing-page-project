@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: landing-backend
+    env: python
+    plan: free
+    buildCommand: "bash render-build.sh"
+    startCommand: "ollama serve & sleep 5 && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: AI_BACKEND
+        value: ollama
+      - key: OLLAMA_MODEL
+        value: phi3
+      - key: OLLAMA_BASE_URL
+        value: http://localhost:11434
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-3.5-turbo
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_TYPE
+        value: postgres

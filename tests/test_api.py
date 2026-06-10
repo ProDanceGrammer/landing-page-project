@@ -43,6 +43,13 @@ def mock_telegram():
 def test_root_endpoint(client):
     response = client.get("/")
     assert response.status_code == 200
+    # Root endpoint now serves HTML landing page
+    assert "text/html" in response.headers.get("content-type", "")
+
+
+def test_api_root_endpoint(client):
+    response = client.get("/api")
+    assert response.status_code == 200
     data = response.json()
     assert "message" in data
     assert "version" in data
@@ -82,10 +89,12 @@ def test_create_lead_success(client, mock_config, mock_ai_service, mock_telegram
         assert response.status_code == 201
         data = response.json()
         assert data["id"] == 1
-        assert data["status"] == "processed"
-        assert data["ai_summary"] == "Test AI summary"
-        assert data["classification"]["temperature"] == "Hot"
-        assert data["classification"]["priority_score"] == 85
+        # New behavior: immediate response with status "received"
+        assert data["status"] == "received"
+        # Background processing returns default values
+        assert "message has been received" in data["ai_summary"].lower()
+        assert data["classification"]["temperature"] == "Warm"
+        assert data["classification"]["priority_score"] == 50
 
 
 def test_create_lead_invalid_email(client):

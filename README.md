@@ -2,18 +2,73 @@
 
 A complete FastAPI-based system for processing lead applications with an optimized landing page, AI-powered summarization, and real-time classification.
 
+**🌐 Live Demo**: https://vasyl-yarmolenko.online
+
 ## Features
 
 - 🎨 **Optimized Landing Page** - Single-page portfolio with animated hero, project showcase, and contact form
 - 🚀 **REST API** - Async backend for receiving and processing lead applications
 - 🤖 **Pluggable AI backends** - Ollama (local) or OpenAI (cloud) for lead intelligence
 - 📊 **Automatic lead classification** - Hot/Warm/Cold with priority scoring (0-100)
-- 💾 **SQLite database** - Lead storage with audit trail
+- 💾 **PostgreSQL database** - Production-ready with Neon serverless
 - 📱 **Telegram notifications** - Real-time alerts for new leads
 - ⚡ **Background processing** - Immediate response + async AI analysis
 - ✅ **Input validation** - Pydantic models with email validation
 - 🧪 **Unit tests** - 23 tests with pytest
 - 📖 **API documentation** - Auto-generated Swagger/OpenAPI
+- 🔄 **CI/CD Pipeline** - Automated deployment with GitHub Actions
+- 📡 **Monitoring** - Keep-warm strategy to prevent cold starts
+
+## Production Architecture
+
+```
+Frontend (Vercel)                Backend (Render)              Database (Neon)
+vasyl-yarmolenko.online    →    landing-backend.onrender.com  →  PostgreSQL
+     ↓                                    ↓
+Static Landing Page              FastAPI + Ollama + OpenAI
+     ↓                                    ↓
+Contact Form Submit         →    AI Classification + Telegram
+                                         ↓
+                            Monitoring (UptimeRobot + GitHub Actions)
+```
+
+## Quick Start
+
+### Local Development
+
+```bash
+# Clone repository
+git clone https://github.com/ProDanceGrammer/landing-page-project.git
+cd landing-page-project
+
+# Activate virtual environment
+source .venv/Scripts/activate  # Windows Git Bash
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your credentials
+
+# Run locally
+uvicorn main:app --reload
+
+# Access
+# - Landing page: http://localhost:8000
+# - API docs: http://localhost:8000/docs
+```
+
+### Production Deployment
+
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** for complete deployment guide including:
+- Neon PostgreSQL setup
+- Render backend deployment
+- Vercel frontend deployment
+- GitHub Actions CI/CD
+- Monitoring configuration
+
+**Deployment is 100% free** using free tiers of Vercel, Render, and Neon.
 
 ## Architecture
 

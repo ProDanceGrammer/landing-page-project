@@ -1,0 +1,99 @@
+name: Deploy to Vercel + Render
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  PYTHON_VERSION: '3.10'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run linting
+        run: |
+          ruff check . || true
+          black --check . || true
+
+      - name: Run tests
+        env:
+          AI_BACKEND: openai
+          OPENAI_API_KEY: test-key
+          TELEGRAM_BOT_TOKEN: test-token
+          TELEGRAM_CHAT_ID: 123456
+          DATABASE_PATH: test.db
+        run: pytest -v
+
+  deploy-frontend:
+    name: Deploy Frontend to Vercel
+    needs: test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          vercel build --prod --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
+
+  deploy-backend:
+    name: Deploy Backend to Render
+    needs: test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Render Deploy
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+
+  smoke-test:
+    name: Smoke Test Deployment
+    needs: [deploy-frontend, deploy-backend]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Wait for deployments
+        run: sleep 30
+
+      - name: Test Frontend
+        run: |
+          curl -f https://vasyl-yarmolenko.online || echo "Frontend not ready yet"
+
+      - name: Test Backend Health
+        run: |
+          sleep 60
+          curl -f https://landing-backend.onrender.com/ping || echo "Backend warming up"

@@ -9,7 +9,15 @@ import asyncio
 
 from models import LeadApplicationRequest, LeadApplicationResponse, LeadClassification
 from config import Config
-from database import init_database, normalize_data, save_lead, get_lead, get_all_leads
+
+# Dynamic import based on database type
+config = Config.load()
+
+if config.DATABASE_TYPE == "postgres":
+    from database_pg import init_database, normalize_data, save_lead, get_lead, get_all_leads
+else:
+    from database import init_database, normalize_data, save_lead, get_lead, get_all_leads
+
 from ai_service import get_ai_service
 from telegram_notifier import send_lead_notification
 
@@ -22,14 +30,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
-config = Config.load()
 ai_service = get_ai_service(config)
 
 
 @app.on_event("startup")
 async def startup_event():
     logger.info("Initializing database...")
-    init_database(config.DATABASE_PATH)
+    logger.info(f"Database Type: {config.DATABASE_TYPE}")
+
+    if config.DATABASE_TYPE == "postgres":
+        init_database()  # PostgreSQL doesn't need db_path
+    else:
+        init_database(config.DATABASE_PATH)
+
     logger.info("Database initialized")
 
     logger.info(f"AI Backend: {config.AI_BACKEND}")
@@ -49,6 +62,15 @@ async def api_root():
         "message": "Lead Processing MVP API",
         "version": "1.0.0",
         "docs": "/docs"
+    }
+
+
+@app.get("/ping")
+async def ping():
+    """Lightweight ping endpoint for monitoring (no DB queries)"""
+    return {
+        "status": "alive",
+        "timestamp": datetime.utcnow().isoformat()
     }
 
 

@@ -21,7 +21,17 @@ htmlcov/
 # Exclude all .md files except README.md
 *.md
 !README.md
+!DEPLOYMENT.md
 
 # Exclude assignment file and Claude folder
 assignment.txt
 .claude/
+
+# Deployment artifacts
+*.log
+.vercel
+.render
+
+# Test database
+test.db
+

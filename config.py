@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Optional
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,6 +16,8 @@ class Config:
     TELEGRAM_BOT_TOKEN: str
     TELEGRAM_CHAT_ID: str
     DATABASE_PATH: str
+    DATABASE_URL: Optional[str]
+    DATABASE_TYPE: Literal["sqlite", "postgres"]
     PHONE_NUMBER: str
     LINKEDIN_URL: str
     GITHUB_URL: str
@@ -28,6 +30,10 @@ class Config:
         if ai_backend not in ["ollama", "openai"]:
             raise ValueError(f"Invalid AI_BACKEND: {ai_backend}. Must be 'ollama' or 'openai'")
 
+        # Auto-detect database type from DATABASE_URL presence
+        database_url = os.getenv("DATABASE_URL")
+        database_type = "postgres" if database_url else os.getenv("DATABASE_TYPE", "sqlite")
+
         config = cls(
             AI_BACKEND=ai_backend,
             OLLAMA_MODEL=os.getenv("OLLAMA_MODEL", "llama3"),
@@ -37,6 +43,8 @@ class Config:
             TELEGRAM_BOT_TOKEN=os.getenv("TELEGRAM_BOT_TOKEN", ""),
             TELEGRAM_CHAT_ID=os.getenv("TELEGRAM_CHAT_ID", ""),
             DATABASE_PATH=os.getenv("DATABASE_PATH", "leads.db"),
+            DATABASE_URL=database_url,
+            DATABASE_TYPE=database_type,
             PHONE_NUMBER=os.getenv("PHONE_NUMBER", ""),
             LINKEDIN_URL=os.getenv("LINKEDIN_URL", ""),
             GITHUB_URL=os.getenv("GITHUB_URL", ""),
@@ -55,3 +63,6 @@ class Config:
 
         if not self.TELEGRAM_CHAT_ID:
             raise ValueError("TELEGRAM_CHAT_ID is required")
+
+        if self.DATABASE_TYPE == "postgres" and not self.DATABASE_URL:
+            raise ValueError("DATABASE_URL is required when DATABASE_TYPE=postgres")
