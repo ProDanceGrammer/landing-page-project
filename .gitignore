@@ -22,6 +22,7 @@ htmlcov/
 *.md
 !README.md
 !DEPLOYMENT.md
+!SESSION_SUMMARY.md
 
 # Exclude assignment file and Claude folder
 assignment.txt
@@ -35,3 +36,4 @@ assignment.txt
 # Test database
 test.db
 
+namecheap/
